@@ -163,12 +163,12 @@ func TestDynamicRouter(t *testing.T) {
 			c.JSON(http.StatusOK, H{"filepath": c.Param("filepath")})
 		})
 
-		r.Run(":8000")
+		log.Fatal(r.Run(":8001"))
 	}()
 
 	t.Run("test for Get 1", func(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
-		response, err := http.Get("http://127.0.0.1:8000/assets/a/b/c")
+		response, err := http.Get("http://127.0.0.1:8001/assets/a/b/c")
 		if err != nil {
 			t.Errorf("get err %s", err)
 		}
@@ -185,7 +185,7 @@ func TestDynamicRouter(t *testing.T) {
 
 	t.Run("test for Get 0", func(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
-		response, err := http.Get("http://127.0.0.1:8000/hello/yyl494")
+		response, err := http.Get("http://127.0.0.1:8001/hello/yyl494")
 		if err != nil {
 			t.Errorf("get err %s", err)
 		}
@@ -197,6 +197,66 @@ func TestDynamicRouter(t *testing.T) {
 		}
 		if string(s) != "hello yyl494, you're at /hello/yyl494\n" {
 			t.Errorf("expect %s, get %s", "hello yyl494, you're at /hello/yyl494\n", string(s))
+		}
+	})
+
+}
+
+func TestGroup(t *testing.T) {
+	go func() {
+		r := New()
+		r.Get("/index", func(c *Context) {
+			c.HTML(http.StatusOK, "<h1>Index Page</h1>")
+		})
+		v1 := r.Group("/v1")
+		{
+			v1.Get("/hello", func(c *Context) {
+				// expect /hello?name=geektutu
+				c.String(http.StatusOK, "hello %s, you're at %s\n", c.Query("name"), c.Path)
+			})
+		}
+		v2 := r.Group("/v2")
+		{
+			v2.Get("/hello/:name", func(c *Context) {
+				// expect /hello/geektutu
+				c.String(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+			})
+		}
+
+		r.Run(":8002")
+	}()
+
+	t.Run("test for Get 1", func(t *testing.T) {
+		time.Sleep(100 * time.Millisecond)
+		response, err := http.Get("http://127.0.0.1:8002/v1/hello")
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+
+		defer response.Body.Close()
+		s, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+		if string(s) != "hello , you're at /v1/hello\n" {
+			t.Errorf("expect %s, get %s", "hello , you're at /v1/hello\n", string(s))
+		}
+	})
+
+	t.Run("test for Get 0", func(t *testing.T) {
+		time.Sleep(100 * time.Millisecond)
+		response, err := http.Get("http://127.0.0.1:8002/v2/hello/yyl")
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+
+		defer response.Body.Close()
+		s, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+		if string(s) != "hello yyl, you're at /v2/hello/yyl\n" {
+			t.Errorf("expect %s, get %s", "hello yyl, you're at /v2/hello/yyl\n", string(s))
 		}
 	})
 
