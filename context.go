@@ -57,3 +57,14 @@ func (c *Context) JSON(code int, obj interface{}) {
 		http.Error(c.Writer, err.Error(), 500)
 	}
 }
+
+func (c *Context) Data(code int, data []byte) {
+	c.Status(code)
+	c.Writer.Write(data)
+}
+
+func (c *Context) HTML(code int, html string) {
+	c.SetHeader("Content-Type", "text/html")
+	c.Status(code)
+	c.Writer.Write([]byte(html))
+}
