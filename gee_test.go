@@ -261,3 +261,44 @@ func TestGroup(t *testing.T) {
 	})
 
 }
+
+func TestMiddleware(t *testing.T) {
+	go func() {
+		r := New()
+		r.Use(func(c *Context) {
+			log.Println("access to ", c.Req.URL.Path)
+		}) // global midlleware
+		r.Get("/", func(c *Context) {
+			c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
+		})
+
+		v2 := r.Group("/v2")
+		v2.Use(func(c *Context) {
+			log.Println("v2 access to ", c.Req.URL.Path)
+		}) // v2 group middleware
+		{
+			v2.Get("/hello/:name", func(c *Context) {
+				c.String(http.StatusOK, "hello %s, you're at %s\n", c.Param("name"), c.Path)
+			})
+		}
+
+		r.Run(":8003")
+	}()
+
+	t.Run("test for middleware", func(t *testing.T) {
+		time.Sleep(100 * time.Millisecond)
+		response, err := http.Get("http://127.0.0.1:8003/v2/hello/yyl")
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+
+		defer response.Body.Close()
+		s, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+		if string(s) != "hello yyl, you're at /v2/hello/yyl\n" {
+			t.Errorf("expect %s, get %s", "hello yyl, you're at /v2/hello/yyl\n", string(s))
+		}
+	})
+}

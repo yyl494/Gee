@@ -15,6 +15,8 @@ type Context struct {
 	Method     string
 	Params     map[string]string
 	StatusCode int
+	handlers   []HandlerFunc
+	index      int
 }
 
 func (c *Context) Param(key string) string {
@@ -24,10 +26,19 @@ func (c *Context) Param(key string) string {
 
 func newContext(w http.ResponseWriter, req *http.Request) *Context {
 	return &Context{
-		Writer: w,
-		Req:    req,
-		Path:   req.URL.Path,
-		Method: req.Method,
+		Writer:   w,
+		Req:      req,
+		Path:     req.URL.Path,
+		Method:   req.Method,
+		index:    -1,
+		handlers: make([]HandlerFunc, 0),
+	}
+}
+
+func (c *Context) Next() {
+	c.index++
+	for ; c.index < len(c.handlers); c.index++ {
+		c.handlers[c.index](c)
 	}
 }
 
