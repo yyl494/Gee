@@ -15,7 +15,7 @@ import (
 func TestContext(t *testing.T) {
 
 	get := func(c *Context) {
-		c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
+		c.HTML(http.StatusOK, "<h1>Hello Gee</h1>", nil)
 	}
 
 	getWithName := func(c *Context) {
@@ -41,23 +41,6 @@ func TestContext(t *testing.T) {
 
 	// start the server
 	go server()
-
-	t.Run("test for Get 0", func(t *testing.T) {
-		time.Sleep(100 * time.Millisecond)
-		response, err := http.Get("http://127.0.0.1:8000/")
-		if err != nil {
-			t.Errorf("get err %s", err)
-		}
-
-		defer response.Body.Close()
-		s, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			t.Errorf("get err %s", err)
-		}
-		if string(s) != "<h1>Hello Gee</h1>" {
-			t.Errorf("expect %s, get %s", "<h1>Hello Gee</h1>", string(s))
-		}
-	})
 
 	t.Run("test for Get 1", func(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
@@ -206,7 +189,7 @@ func TestGroup(t *testing.T) {
 	go func() {
 		r := New()
 		r.Get("/index", func(c *Context) {
-			c.HTML(http.StatusOK, "<h1>Index Page</h1>")
+			c.HTML(http.StatusOK, "<h1>Index Page</h1>", nil)
 		})
 		v1 := r.Group("/v1")
 		{
@@ -269,7 +252,7 @@ func TestMiddleware(t *testing.T) {
 			log.Println("access to ", c.Req.URL.Path)
 		}) // global midlleware
 		r.Get("/", func(c *Context) {
-			c.HTML(http.StatusOK, "<h1>Hello Gee</h1>")
+			c.HTML(http.StatusOK, "<h1>Hello Gee</h1>", nil)
 		})
 
 		v2 := r.Group("/v2")
@@ -299,6 +282,36 @@ func TestMiddleware(t *testing.T) {
 		}
 		if string(s) != "hello yyl, you're at /v2/hello/yyl\n" {
 			t.Errorf("expect %s, get %s", "hello yyl, you're at /v2/hello/yyl\n", string(s))
+		}
+	})
+}
+
+func TestRecovery(t *testing.T) {
+	go func() {
+		r := Default()
+		// index out of range for testing Recovery()
+		r.Get("/panic", func(c *Context) {
+			names := []string{"geektutu"}
+			c.String(http.StatusOK, names[100])
+		})
+
+		r.Run(":8004")
+	}()
+
+	t.Run("test for middleware", func(t *testing.T) {
+		time.Sleep(100 * time.Millisecond)
+		response, err := http.Get("http://127.0.0.1:8004/panic")
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+
+		defer response.Body.Close()
+		s, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			t.Errorf("get err %s", err)
+		}
+		if string(s) != "{\"message\":\"Internal Server Error\"}\n" {
+			t.Errorf("expect %s, get %s", "{\"message\":\"Internal Server Error\"}\n", string(s))
 		}
 	})
 }
